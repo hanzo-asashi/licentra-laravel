@@ -1,6 +1,8 @@
 <?php
 
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Licentra\LicentraLaravel\Events\LicenseRevoked;
 use Licentra\LicentraLaravel\Facades\LicentraLaravel;
 use Licentra\LicentraLaravel\Support\CryptoVerifier;
 use Licentra\LicentraLaravel\Support\HwidGenerator;
@@ -183,4 +185,48 @@ it('provides global licentra() helper function and clears cache', function () {
 
     LicentraLaravel::clearCache();
     expect(true)->toBeTrue();
+});
+
+it('handles licentra webhook post and dispatches events', function () {
+    Event::fake();
+
+    $payload = ['license_key' => $this->licenseKey, 'status' => 'Revoked'];
+    $json = CryptoVerifier::deterministicJsonEncode($payload);
+    openssl_sign($json, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    $response = $this->postJson('/licentra/webhook', [
+        'event' => 'license.revoked',
+        'data' => $payload,
+        'signature' => base64_encode($rawSig),
+    ]);
+
+    $response->assertStatus(200);
+    Event::assertDispatched(LicenseRevoked::class);
+});
+
+it('runs licentra artisan commands successfully', function () {
+    $this->artisan('licentra:status')->assertExitCode(0);
+    $this->artisan('licentra:clear-cache')->assertExitCode(0);
+});
+
+it('saves and loads offline license file', function () {
+    $payload = [
+        'license_key' => $this->licenseKey,
+        'valid_until' => date('Y-m-d', strtotime('+30 days')),
+    ];
+    $jsonPayload = CryptoVerifier::deterministicJsonEncode($payload);
+    openssl_sign($jsonPayload, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    $content = json_encode([
+        'payload' => $payload,
+        'signature' => base64_encode($rawSig),
+    ]);
+
+    $tmpPath = sys_get_temp_dir().'/test_offline.lic';
+    LicentraLaravel::saveOfflineLicense($content, $tmpPath);
+
+    $loaded = LicentraLaravel::loadOfflineLicense($tmpPath);
+    expect($loaded['license_key'])->toBe($this->licenseKey);
+
+    @unlink($tmpPath);
 });

@@ -182,6 +182,16 @@ class LicentraLaravel
                 return true;
             }
         } catch (Exception $e) {
+            // Check offline .lic file fallback if available
+            try {
+                $offlineData = $this->loadOfflineLicense();
+                if (! empty($offlineData)) {
+                    return true;
+                }
+            } catch (Exception $ex) {
+                // Offline file missing, invalid or expired
+            }
+
             // Grace period fallback if server is unreachable
             /** @var int|null $lastPingTs */
             $lastPingTs = $this->getEncryptedCache("licentra_last_successful_ping_{$this->licenseKey}");
@@ -368,6 +378,37 @@ class LicentraLaravel
         $content = File::exists($fileContentOrPath) ? File::get($fileContentOrPath) : $fileContentOrPath;
 
         return CryptoVerifier::verifyOfflineLicense($content, $pubKey);
+    }
+
+    /**
+     * Save offline license file content (.lic) to local storage.
+     */
+    public function saveOfflineLicense(string $fileContentOrPath, ?string $targetPath = null): bool
+    {
+        $content = File::exists($fileContentOrPath) ? File::get($fileContentOrPath) : $fileContentOrPath;
+        $path = $targetPath ?? storage_path('app/licentra/license.lic');
+
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, $content);
+
+        return true;
+    }
+
+    /**
+     * Load and verify local offline license file from storage.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws Exception
+     */
+    public function loadOfflineLicense(?string $path = null): array
+    {
+        $filePath = $path ?? storage_path('app/licentra/license.lic');
+        if (! File::exists($filePath)) {
+            throw new Exception("Offline license file not found at [{$filePath}].");
+        }
+
+        return $this->verifyOfflineLicense($filePath);
     }
 
     /**

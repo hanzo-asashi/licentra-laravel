@@ -52,4 +52,15 @@ return [
     | Toggle HTTP SSL verification. Set to true in production.
     */
     'verify_ssl' => env('LICENTRA_VERIFY_SSL', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Configuration
+    |--------------------------------------------------------------------------
+    | Enable/disable automatic webhook receiver route and customize route path.
+    */
+    'webhook' => [
+        'enabled' => env('LICENTRA_WEBHOOK_ENABLED', true),
+        'path' => env('LICENTRA_WEBHOOK_PATH', '/licentra/webhook'),
+    ],
 ];

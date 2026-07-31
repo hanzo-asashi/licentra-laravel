@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, mixed> checkForUpdates(?string $currentVersion = null, ?string $productSlug = null)
  * @method static bool downloadRelease(string $version, string $saveToPath, ?string $signature = null)
  * @method static array<string, mixed> verifyOfflineLicense(string $fileContentOrPath)
+ * @method static bool saveOfflineLicense(string $fileContentOrPath, ?string $targetPath = null)
+ * @method static array<string, mixed> loadOfflineLicense(?string $path = null)
  * @method static array<string, mixed> verifyJwt(string $jwtToken)
  * @method static array<string, mixed> checkInSeat(string $sessionId, ?string $userIdentifier = null)
  * @method static array<string, mixed> keepSeatAlive(string $sessionId, ?string $userIdentifier = null)

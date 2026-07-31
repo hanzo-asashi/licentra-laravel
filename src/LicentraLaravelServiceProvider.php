@@ -2,9 +2,18 @@
 
 namespace Licentra\LicentraLaravel;
 
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
+use Licentra\LicentraLaravel\Commands\LicentraActivateCommand;
+use Licentra\LicentraLaravel\Commands\LicentraClearCacheCommand;
+use Licentra\LicentraLaravel\Commands\LicentraStatusCommand;
+use Licentra\LicentraLaravel\Http\Controllers\WebhookController;
+use Licentra\LicentraLaravel\Listeners\CheckOutSeatOnLogout;
 use Licentra\LicentraLaravel\Middleware\EnsureFeatureIsActive;
 use Licentra\LicentraLaravel\Middleware\EnsureLicenseIsValid;
+use Licentra\LicentraLaravel\Middleware\KeepSeatAliveMiddleware;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -14,7 +23,12 @@ class LicentraLaravelServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('licentra-laravel')
-            ->hasConfigFile();
+            ->hasConfigFile()
+            ->hasCommands([
+                LicentraActivateCommand::class,
+                LicentraStatusCommand::class,
+                LicentraClearCacheCommand::class,
+            ]);
     }
 
     public function packageRegistered(): void
@@ -42,11 +56,24 @@ class LicentraLaravelServiceProvider extends PackageServiceProvider
         if ($router) {
             $router->aliasMiddleware('licentra.valid', EnsureLicenseIsValid::class);
             $router->aliasMiddleware('licentra.feature', EnsureFeatureIsActive::class);
+            $router->aliasMiddleware('licentra.seat_alive', KeepSeatAliveMiddleware::class);
         }
     }
 
     public function packageBooted(): void
     {
+        // Register Webhook Route if enabled
+        if (config('licentra-laravel.webhook.enabled', true)) {
+            /** @var string $webhookPath */
+            $webhookPath = config('licentra-laravel.webhook.path', '/licentra/webhook');
+            Route::post($webhookPath, WebhookController::class)
+                ->middleware('api')
+                ->name('licentra.webhook');
+        }
+
+        // Register Logout Event listener for Seat Check-out
+        Event::listen(Logout::class, CheckOutSeatOnLogout::class);
+
         // Register Blade Directives
         Blade::if('hasFeature', function (string $feature) {
             /** @var LicentraLaravel $licentra */
