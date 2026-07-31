@@ -230,3 +230,14 @@ it('saves and loads offline license file', function () {
 
     @unlink($tmpPath);
 });
+
+it('renders blade components for Filament and Livewire', function () {
+    Http::fake([
+        'https://licentra.test/api/license/ping' => Http::response([
+            'data' => ['status' => 'valid', 'license_key' => $this->licenseKey],
+        ], 200),
+    ]);
+
+    $view = $this->blade('<x-licentra-laravel::badge />');
+    $view->assertSee('Active');
+});

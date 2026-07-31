@@ -24,6 +24,7 @@ class LicentraLaravelServiceProvider extends PackageServiceProvider
         $package
             ->name('licentra-laravel')
             ->hasConfigFile()
+            ->hasViews()
             ->hasCommands([
                 LicentraActivateCommand::class,
                 LicentraStatusCommand::class,
