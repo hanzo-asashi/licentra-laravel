@@ -44,6 +44,7 @@ beforeEach(function () {
     $pubDetails = openssl_pkey_get_details($res);
     $this->publicKey = $pubDetails['key'];
 
+    config()->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
     config()->set('licentra-laravel.url', $this->baseUrl);
     config()->set('licentra-laravel.license_key', $this->licenseKey);
     config()->set('licentra-laravel.public_key', $this->publicKey);
@@ -240,4 +241,43 @@ it('renders blade components for Filament and Livewire', function () {
 
     $view = $this->blade('<x-licentra-laravel::badge />');
     $view->assertSee('Active');
+});
+
+it('runs health check and update commands successfully', function () {
+    Http::fake([
+        'https://licentra.test/api/license/public-key' => Http::response([
+            'public_key' => $this->publicKey,
+        ], 200),
+        'https://licentra.test/api/releases/check*' => Http::response([
+            'update_available' => false,
+            'latest_version' => '1.0.0',
+        ], 200),
+    ]);
+
+    $this->artisan('licentra:health')->assertExitCode(0);
+    $this->artisan('licentra:update --force')->assertExitCode(0);
+});
+
+it('handles activation form post requests via controller', function () {
+    $data = [
+        'status' => 'Active',
+        'license_key' => 'NEW-KEY-1234',
+    ];
+
+    $json = CryptoVerifier::deterministicJsonEncode($data);
+    openssl_sign($json, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    Http::fake([
+        'https://licentra.test/api/license/activate' => Http::response([
+            'message' => 'License activated successfully',
+            'data' => $data,
+            'signature' => base64_encode($rawSig),
+        ], 200),
+    ]);
+
+    $response = $this->post('/licentra/activate', [
+        'license_key' => 'NEW-KEY-1234',
+    ]);
+
+    $response->assertSessionHas('licentra_success');
 });

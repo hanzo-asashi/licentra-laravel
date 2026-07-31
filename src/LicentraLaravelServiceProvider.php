@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Licentra\LicentraLaravel\Commands\LicentraActivateCommand;
 use Licentra\LicentraLaravel\Commands\LicentraClearCacheCommand;
+use Licentra\LicentraLaravel\Commands\LicentraHealthCommand;
 use Licentra\LicentraLaravel\Commands\LicentraStatusCommand;
+use Licentra\LicentraLaravel\Commands\LicentraUpdateCommand;
+use Licentra\LicentraLaravel\Http\Controllers\ActivationController;
 use Licentra\LicentraLaravel\Http\Controllers\WebhookController;
 use Licentra\LicentraLaravel\Listeners\CheckOutSeatOnLogout;
 use Licentra\LicentraLaravel\Middleware\EnsureFeatureIsActive;
@@ -29,6 +32,8 @@ class LicentraLaravelServiceProvider extends PackageServiceProvider
                 LicentraActivateCommand::class,
                 LicentraStatusCommand::class,
                 LicentraClearCacheCommand::class,
+                LicentraHealthCommand::class,
+                LicentraUpdateCommand::class,
             ]);
     }
 
@@ -71,6 +76,11 @@ class LicentraLaravelServiceProvider extends PackageServiceProvider
                 ->middleware('api')
                 ->name('licentra.webhook');
         }
+
+        // Register Activation Form POST Route
+        Route::post('/licentra/activate', ActivationController::class)
+            ->middleware('web')
+            ->name('licentra.activate');
 
         // Register Logout Event listener for Seat Check-out
         Event::listen(Logout::class, CheckOutSeatOnLogout::class);
