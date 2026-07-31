@@ -54,6 +54,8 @@ class LicentraLaravel
 
     /**
      * Activate license online.
+     *
+     * @return array<string, mixed>
      */
     public function activate(?string $domain = null, ?string $machineHash = null): array
     {
@@ -133,6 +135,8 @@ class LicentraLaravel
 
     /**
      * Check if a feature is enabled for the license.
+     *
+     * @param  array<int, string>|null  $activeFeatures
      */
     public function hasFeature(string $featureName, ?array $activeFeatures = null): bool
     {
@@ -143,6 +147,8 @@ class LicentraLaravel
 
     /**
      * Check for software updates.
+     *
+     * @return array<string, mixed>
      */
     public function checkForUpdates(?string $currentVersion = null, ?string $productSlug = null): array
     {
@@ -164,6 +170,8 @@ class LicentraLaravel
 
     /**
      * Check-in concurrent seat.
+     *
+     * @return array<string, mixed>
      */
     public function checkInSeat(string $sessionId, ?string $userIdentifier = null): array
     {

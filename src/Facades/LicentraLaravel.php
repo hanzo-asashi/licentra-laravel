@@ -5,11 +5,11 @@ namespace Licentra\LicentraLaravel\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static array activate(?string $domain = null, ?string $machineHash = null)
+ * @method static array<string, mixed> activate(?string $domain = null, ?string $machineHash = null)
  * @method static bool ping(?string $nonce = null)
- * @method static bool hasFeature(string $featureName, ?array $activeFeatures = null)
- * @method static array checkForUpdates(?string $currentVersion = null, ?string $productSlug = null)
- * @method static array checkInSeat(string $sessionId, ?string $userIdentifier = null)
+ * @method static bool hasFeature(string $featureName, ?array<int, string> $activeFeatures = null)
+ * @method static array<string, mixed> checkForUpdates(?string $currentVersion = null, ?string $productSlug = null)
+ * @method static array<string, mixed> checkInSeat(string $sessionId, ?string $userIdentifier = null)
  * @method static bool checkOutSeat(string $sessionId)
  * @method static ?string getPublicKey()
  *
