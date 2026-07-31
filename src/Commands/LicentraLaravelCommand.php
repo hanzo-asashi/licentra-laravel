@@ -1,12 +1,12 @@
 <?php
 
-namespace VendorName\Skeleton\Commands;
+namespace Licentra\LicentraLaravel\Commands;
 
 use Illuminate\Console\Command;
 
-class SkeletonCommand extends Command
+class LicentraLaravelCommand extends Command
 {
-    public $signature = 'skeleton';
+    public $signature = 'licentra-laravel';
 
     public $description = 'My command';
 
