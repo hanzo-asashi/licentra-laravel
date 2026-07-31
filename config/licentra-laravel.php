@@ -44,4 +44,12 @@ return [
     | Maximum days allowed to operate offline if server ping fails.
     */
     'grace_period_days' => env('LICENTRA_GRACE_PERIOD_DAYS', 3),
+
+    /*
+    |--------------------------------------------------------------------------
+    | SSL Verification
+    |--------------------------------------------------------------------------
+    | Toggle HTTP SSL verification. Set to true in production.
+    */
+    'verify_ssl' => env('LICENTRA_VERIFY_SSL', false),
 ];
