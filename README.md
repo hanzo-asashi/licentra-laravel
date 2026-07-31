@@ -15,10 +15,11 @@
 - 🔑 **Hardware ID (HWID) Generator & Reset API**: Generator sidik jari perangkat keras (*machine fingerprint*) otomatis dan metode pengajuan reset HWID (`requestHwidReset`).
 - 🎛️ **Feature Flags (Entitlements) & Blade Directives**: Manajemen hak akses modul aplikasi (`hasFeature`), middleware (`licentra.feature:modul`), serta Blade Directive `@hasFeature('modul')`.
 - 🔔 **Outbound Webhook Receiver & Laravel Events**: Endpoint webhook bawaan (`POST /licentra/webhook`) bertanda tangan RSA yang otomatis membersihkan cache lokal dan men-dispatch **Laravel Events** (`LicenseRevoked`, `LicenseStatusChanged`, `HwidResetApproved`).
-- 💻 **Perintah Artisan CLI**: CLI bawaan untuk mengelola lisensi langsung dari terminal: `php artisan licentra:status`, `licentra:activate`, dan `licentra:clear-cache`.
+- 💻 **Perintah Artisan CLI Lengkap**: CLI bawaan untuk mengelola lisensi dari terminal: `php artisan licentra:status`, `licentra:activate`, `licentra:clear-cache`, `licentra:health`, dan `licentra:update`.
 - 👥 **Concurrent Seats Management & Automatic Logout Listener**: Manajemen alokasi kuota user login bersamaan (`checkInSeat`, `keepSeatAlive`, `checkOutSeat`), dilengkapi listener logout otomatis dan middleware heartbeat (`licentra.seat_alive`).
-- 🎨 **Integrasi Filament (v3/v4/v5) & Livewire (v3/v4)**: Komponen Blade siap pakai `<x-licentra-laravel::badge />`, `<x-licentra-laravel::banner />`, dan `<x-licentra-laravel::feature />` dengan dukungan Dark Mode & Filament RenderHooks.
-- 📦 **Auto-Updater & Signed File Downloader**: Pengecekan rilis versi terbaru (`checkForUpdates`) dan pengunduhan file update terenkripsi (`downloadRelease`).
+- 🎨 **Integrasi Filament (v3/v4/v5) & Livewire (v3/v4)**: Komponen Blade siap pakai `<x-licentra-laravel::badge />`, `<x-licentra-laravel::banner />`, `<x-licentra-laravel::feature />`, dan `<x-licentra-laravel::activation-form />` dengan dukungan Dark Mode & Filament RenderHooks.
+- 🔄 **Automated App Updater Installer (`php artisan licentra:update`)**: Otomatisasi pengunduhan update bertanda tangan digital, *Maintenance Mode*, migrasi database, dan pembersihan cache.
+- 🏥 **Health & Network Diagnostic (`php artisan licentra:health`)**: Pengujian diagnostik konektivitas, sertifikasi SSL, Public Key RSA, izin direktori, dan sinkronisasi jam sistem.
 - 🔒 **Proteksi Cache Terenkripsi & Anti-Clock-Tampering**: Penyimpanan cache lokal terenkripsi serta proteksi manipulasi jam sistem (clock rewind protection).
 
 ---
@@ -135,6 +136,12 @@ Licentra::checkOutSeat(session()->getId());
 # Cek status lisensi, validitas, HWID, dan Public Key
 php artisan licentra:status
 
+# Jalankan pengujian diagnostik kesehatan koneksi & enkripsi
+php artisan licentra:health
+
+# Jalankan pembaruan perangkat lunak otomatis & installer
+php artisan licentra:update
+
 # Aktivasi lisensi dari terminal
 php artisan licentra:activate AAAA-BBBB-CCCC-DDDD
 
@@ -193,6 +200,9 @@ Gunakan Komponen Blade di View Filament/Livewire:
 
 {{-- Warning Alert Banner --}}
 <x-licentra-laravel::banner />
+
+{{-- Form Aktivasi Lisensi --}}
+<x-licentra-laravel::activation-form />
 
 {{-- Feature Wrapper --}}
 <x-licentra-laravel::feature name="scada_integration">
