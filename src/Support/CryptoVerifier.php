@@ -9,6 +9,22 @@ use RuntimeException;
 
 class CryptoVerifier
 {
+    public static function deterministicJsonEncode(array $data): string
+    {
+        $sortKeys = static function (array &$arr) use (&$sortKeys): void {
+            ksort($arr);
+            foreach ($arr as &$value) {
+                if (is_array($value)) {
+                    $sortKeys($value);
+                }
+            }
+        };
+
+        $sortKeys($data);
+
+        return (string) json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * Verify RSA-256 signature (SHA256withRSA) against data string.
      */
@@ -43,10 +59,7 @@ class CryptoVerifier
         /** @var string $signature */
         $signature = $data['signature'];
 
-        $payloadString = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if ($payloadString === false) {
-            throw new RuntimeException('Failed to encode offline license payload.');
-        }
+        $payloadString = self::deterministicJsonEncode($payload);
 
         if (! self::verifySignature($payloadString, $signature, $publicKey)) {
             throw new RuntimeException('Offline license signature verification failed.');

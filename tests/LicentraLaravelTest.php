@@ -72,7 +72,7 @@ it('verifies offline license file (.lic format)', function () {
         'features' => ['feature_a', 'feature_b'],
     ];
 
-    $payloadString = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $payloadString = CryptoVerifier::deterministicJsonEncode($payload);
     openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
 
     $licContent = json_encode([
@@ -114,7 +114,8 @@ it('activates license online with RSA signature verification', function () {
         'features' => ['analytics', 'exports'],
     ];
 
-    openssl_sign(json_encode($data), $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+    $payloadString = CryptoVerifier::deterministicJsonEncode($data);
+    openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
 
     Http::fake([
         'https://licentra.test/api/license/activate' => Http::response([
@@ -136,7 +137,8 @@ it('performs ping with RSA verification', function () {
         'features' => ['premium'],
     ];
 
-    openssl_sign(json_encode($data), $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+    $payloadString = CryptoVerifier::deterministicJsonEncode($data);
+    openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
 
     Http::fake([
         'https://licentra.test/api/license/ping' => Http::response([

@@ -100,18 +100,18 @@ class LicentraLaravel
         // RSA Signature Verification
         $pubKey = $this->getPublicKey();
         if (! empty($signature) && ! empty($pubKey)) {
-            $payloadJson = json_encode($data);
-            if ($payloadJson === false || ! CryptoVerifier::verifySignature($payloadJson, $signature, $pubKey)) {
+            $payloadJson = CryptoVerifier::deterministicJsonEncode($data);
+            if (! CryptoVerifier::verifySignature($payloadJson, $signature, $pubKey)) {
                 throw new Exception('License activation response failed RSA signature verification.');
             }
         }
 
-        // Cache active status
-        Cache::put("licentra_status_{$this->licenseKey}", true, config('licentra-laravel.cache_ttl', 3600));
-        Cache::put("licentra_data_{$this->licenseKey}", $data, config('licentra-laravel.cache_ttl', 3600));
+        // Cache active status securely
+        $this->putEncryptedCache("licentra_status_{$this->licenseKey}", true, config('licentra-laravel.cache_ttl', 3600));
+        $this->putEncryptedCache("licentra_data_{$this->licenseKey}", $data, config('licentra-laravel.cache_ttl', 3600));
 
         if (isset($data['features']) && is_array($data['features'])) {
-            Cache::put("licentra_features_{$this->licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
+            $this->putEncryptedCache("licentra_features_{$this->licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
         }
 
         return $data;
@@ -122,10 +122,15 @@ class LicentraLaravel
      */
     public function ping(?string $nonce = null): bool
     {
+        // Clock tampering check
+        if ($this->isClockTampered()) {
+            return false;
+        }
+
         $cacheKey = "licentra_ping_{$this->licenseKey}";
 
         if (Cache::has($cacheKey)) {
-            return (bool) Cache::get($cacheKey);
+            return (bool) $this->getEncryptedCache($cacheKey, false);
         }
 
         $sentNonce = $nonce ?? bin2hex(random_bytes(8));
@@ -152,9 +157,9 @@ class LicentraLaravel
                 // Verify RSA Signature if available
                 $pubKey = $this->getPublicKey();
                 if (! empty($signature) && ! empty($pubKey)) {
-                    $payloadJson = json_encode($data);
-                    if ($payloadJson === false || ! CryptoVerifier::verifySignature($payloadJson, $signature, $pubKey)) {
-                        Cache::put($cacheKey, false, 60);
+                    $payloadJson = CryptoVerifier::deterministicJsonEncode($data);
+                    if (! CryptoVerifier::verifySignature($payloadJson, $signature, $pubKey)) {
+                        $this->putEncryptedCache($cacheKey, false, 60);
 
                         return false;
                     }
@@ -162,31 +167,32 @@ class LicentraLaravel
 
                 // Verify replay protection nonce
                 if (isset($data['nonce']) && $data['nonce'] !== $sentNonce) {
-                    Cache::put($cacheKey, false, 60);
+                    $this->putEncryptedCache($cacheKey, false, 60);
 
                     return false;
                 }
 
-                Cache::put($cacheKey, true, config('licentra-laravel.cache_ttl', 3600));
-                Cache::put("licentra_last_successful_ping_{$this->licenseKey}", now(), now()->addDays(30));
+                $this->putEncryptedCache($cacheKey, true, config('licentra-laravel.cache_ttl', 3600));
+                $this->putEncryptedCache("licentra_last_successful_ping_{$this->licenseKey}", now()->timestamp, now()->addDays(30));
 
                 if (isset($data['features']) && is_array($data['features'])) {
-                    Cache::put("licentra_features_{$this->licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
+                    $this->putEncryptedCache("licentra_features_{$this->licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
                 }
 
                 return true;
             }
         } catch (Exception $e) {
             // Grace period fallback if server is unreachable
-            $lastPing = Cache::get("licentra_last_successful_ping_{$this->licenseKey}");
+            /** @var int|null $lastPingTs */
+            $lastPingTs = $this->getEncryptedCache("licentra_last_successful_ping_{$this->licenseKey}");
             $graceDays = (int) config('licentra-laravel.grace_period_days', 3);
 
-            if ($lastPing && now()->diffInDays($lastPing) <= $graceDays) {
+            if ($lastPingTs && (time() - $lastPingTs) <= ($graceDays * 86400)) {
                 return true;
             }
         }
 
-        Cache::put($cacheKey, false, 60);
+        $this->putEncryptedCache($cacheKey, false, 60);
 
         return false;
     }
@@ -199,9 +205,64 @@ class LicentraLaravel
     public function hasFeature(string $featureName, ?array $activeFeatures = null): bool
     {
         /** @var array<int, string> $features */
-        $features = $activeFeatures ?? Cache::get("licentra_features_{$this->licenseKey}", []);
+        $features = $activeFeatures ?? $this->getEncryptedCache("licentra_features_{$this->licenseKey}", []);
 
         return in_array($featureName, $features, true);
+    }
+
+    /**
+     * Store encrypted value in cache to prevent local cache tampering.
+     */
+    private function putEncryptedCache(string $key, mixed $value, int|\DateTimeInterface $ttl): void
+    {
+        try {
+            $encrypted = encrypt($value);
+            Cache::put($key, $encrypted, $ttl);
+        } catch (Exception $e) {
+            Cache::put($key, $value, $ttl);
+        }
+    }
+
+    /**
+     * Retrieve encrypted value from cache.
+     */
+    private function getEncryptedCache(string $key, mixed $default = null): mixed
+    {
+        if (! Cache::has($key)) {
+            return $default;
+        }
+
+        $raw = Cache::get($key);
+        if ($raw === null) {
+            return $default;
+        }
+
+        try {
+            return decrypt($raw);
+        } catch (Exception $e) {
+            return $raw;
+        }
+    }
+
+    /**
+     * Verify that system clock has not been tampered with (wound backward).
+     */
+    private function isClockTampered(): bool
+    {
+        $lastTimestampKey = "licentra_last_timestamp_{$this->licenseKey}";
+        $currentTs = time();
+
+        if (Cache::has($lastTimestampKey)) {
+            /** @var int|null $lastTs */
+            $lastTs = $this->getEncryptedCache($lastTimestampKey);
+            if ($lastTs !== null && $currentTs < $lastTs) {
+                return true;
+            }
+        }
+
+        $this->putEncryptedCache($lastTimestampKey, $currentTs, now()->addDays(365));
+
+        return false;
     }
 
     /**
