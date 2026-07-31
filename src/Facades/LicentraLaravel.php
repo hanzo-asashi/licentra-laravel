@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, mixed> checkInSeat(string $sessionId, ?string $userIdentifier = null)
  * @method static array<string, mixed> keepSeatAlive(string $sessionId, ?string $userIdentifier = null)
  * @method static bool checkOutSeat(string $sessionId)
+ * @method static void clearCache(?string $licenseKey = null)
  * @method static ?string getPublicKey()
  *
  * @see \Licentra\LicentraLaravel\LicentraLaravel

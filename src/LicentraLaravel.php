@@ -428,6 +428,20 @@ class LicentraLaravel
     }
 
     /**
+     * Clear all cached license data for a key.
+     */
+    public function clearCache(?string $licenseKey = null): void
+    {
+        $key = $licenseKey ?? $this->licenseKey;
+        Cache::forget("licentra_status_{$key}");
+        Cache::forget("licentra_data_{$key}");
+        Cache::forget("licentra_features_{$key}");
+        Cache::forget("licentra_ping_{$key}");
+        Cache::forget("licentra_last_successful_ping_{$key}");
+        Cache::forget("licentra_last_timestamp_{$key}");
+    }
+
+    /**
      * Check-out concurrent seat.
      */
     public function checkOutSeat(string $sessionId): bool

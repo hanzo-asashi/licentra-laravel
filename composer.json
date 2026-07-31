@@ -44,7 +44,10 @@
         "psr-4": {
             "Licentra\\LicentraLaravel\\": "src/",
             "Licentra\\LicentraLaravel\\Database\\Factories\\": "database/factories/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

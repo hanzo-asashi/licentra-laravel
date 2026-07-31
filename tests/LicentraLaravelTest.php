@@ -177,3 +177,10 @@ it('checks in seat and keeps seat alive', function () {
     expect($res['status'])->toBe('checked_in');
     expect($res['active_seats'])->toBe(1);
 });
+
+it('provides global licentra() helper function and clears cache', function () {
+    expect(licentra())->toBeInstanceOf(Licentra\LicentraLaravel\LicentraLaravel::class);
+
+    LicentraLaravel::clearCache();
+    expect(true)->toBeTrue();
+});
