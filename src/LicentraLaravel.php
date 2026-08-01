@@ -40,11 +40,21 @@ class LicentraLaravel
     }
 
     /**
-     * Get current public key.
+     * Set or override public key.
      */
-    public function getPublicKey(): ?string
+    public function setPublicKey(?string $publicKey): self
     {
-        if (empty($this->publicKey)) {
+        $this->publicKey = $publicKey;
+
+        return $this;
+    }
+
+    /**
+     * Get current public key, optionally forcing a refresh from server.
+     */
+    public function getPublicKey(bool $forceRefresh = false): ?string
+    {
+        if (empty($this->publicKey) || $forceRefresh) {
             try {
                 $response = Http::withOptions(['verify' => $this->verifySsl])
                     ->get("{$this->baseUrl}/api/license/public-key");
