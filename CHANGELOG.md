@@ -2,6 +2,20 @@
 
 All notable changes to `licentra-laravel` will be documented in this file.
 
+## v1.4.1 - 2026-08-02
+
+### What's Changed
+
+* style: Format SDK Configuration and Test Suite by @hanzo-asashi in https://github.com/hanzo-asashi/licentra-laravel/pull/1
+
+### New Contributors
+
+* @hanzo-asashi made their first contribution in https://github.com/hanzo-asashi/licentra-laravel/pull/1
+
+**Full Changelog**: https://github.com/hanzo-asashi/licentra-laravel/compare/v1.2.2...v1.3.0
+
+**Full Changelog**: https://github.com/hanzo-asashi/licentra-laravel/compare/v1.4.0...v1.4.1
+
 ## v1.2.1 - 2026-08-02
 
 **Full Changelog**: https://github.com/hanzo-asashi/licentra-laravel/compare/v1.2.0...v1.2.1
