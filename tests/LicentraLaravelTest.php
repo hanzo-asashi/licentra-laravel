@@ -261,7 +261,7 @@ it('runs health check and update commands successfully', function () {
 it('handles activation form post requests via controller', function () {
     $data = [
         'status' => 'Active',
-        'license_key' => 'NEW-KEY-1234',
+        'license_key' => 'LCN-ACDE-FGH2-3456-7KMN',
     ];
 
     $json = CryptoVerifier::deterministicJsonEncode($data);
@@ -276,7 +276,7 @@ it('handles activation form post requests via controller', function () {
     ]);
 
     $response = $this->post('/licentra/activate', [
-        'license_key' => 'NEW-KEY-1234',
+        'license_key' => 'LCN-ACDE-FGH2-3456-7KMN',
     ]);
 
     $response->assertSessionHas('licentra_success');
