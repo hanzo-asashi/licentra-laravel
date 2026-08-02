@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, mixed> activate(?string $domain = null, ?string $machineHash = null)
  * @method static bool ping(?string $nonce = null)
  * @method static bool hasFeature(string $featureName, ?array<int, string> $activeFeatures = null)
+ * @method static mixed getLimit(string $limitKey, mixed $default = null, ?array<string, mixed> $activeLimits = null)
+ * @method static bool hasReachedLimit(string $limitKey, int|float $currentUsage, ?array<string, mixed> $activeLimits = null)
+ * @method static array<string, mixed> fetchCrl()
+ * @method static bool isRevoked(?string $targetLicenseKey = null, ?array<string, mixed> $crlData = null)
  * @method static array<string, mixed> requestHwidReset(string $reason)
  * @method static array<string, mixed> checkForUpdates(?string $currentVersion = null, ?string $productSlug = null)
  * @method static bool downloadRelease(string $version, string $saveToPath, ?string $signature = null)
@@ -20,6 +24,10 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool checkOutSeat(string $sessionId)
  * @method static void clearCache(?string $licenseKey = null)
  * @method static ?string getPublicKey()
+ * @method static string getLicenseKey()
+ * @method static void resolveLicenseKeyUsing(callable $resolver)
+ * @method static \Licentra\LicentraLaravel\LicentraLaravel forLicenseKey(string $licenseKey)
+ * @method static \Licentra\LicentraLaravel\LicentraLaravel forTenant(mixed $tenant, string $licenseKeyAttribute = 'license_key')
  *
  * @see \Licentra\LicentraLaravel\LicentraLaravel
  */

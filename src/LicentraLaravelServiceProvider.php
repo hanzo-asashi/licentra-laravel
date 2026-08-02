@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Route;
 use Licentra\LicentraLaravel\Commands\LicentraActivateCommand;
 use Licentra\LicentraLaravel\Commands\LicentraClearCacheCommand;
 use Licentra\LicentraLaravel\Commands\LicentraHealthCommand;
+use Licentra\LicentraLaravel\Commands\LicentraInstallLicenseCommand;
 use Licentra\LicentraLaravel\Commands\LicentraStatusCommand;
+use Licentra\LicentraLaravel\Commands\LicentraSyncCommand;
 use Licentra\LicentraLaravel\Commands\LicentraUpdateCommand;
 use Licentra\LicentraLaravel\Http\Controllers\ActivationController;
 use Licentra\LicentraLaravel\Http\Controllers\WebhookController;
@@ -31,6 +33,8 @@ class LicentraLaravelServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 LicentraActivateCommand::class,
                 LicentraStatusCommand::class,
+                LicentraSyncCommand::class,
+                LicentraInstallLicenseCommand::class,
                 LicentraClearCacheCommand::class,
                 LicentraHealthCommand::class,
                 LicentraUpdateCommand::class,

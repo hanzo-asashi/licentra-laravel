@@ -26,7 +26,56 @@ class LicentraLaravel
         $this->baseUrl = rtrim($baseUrl ?? (string) config('licentra-laravel.url', 'https://licentra.test'), '/');
         $this->licenseKey = $licenseKey ?? (string) config('licentra-laravel.license_key', '');
         $this->publicKey = $publicKey ?? config('licentra-laravel.public_key');
-        $this->verifySsl = $verifySsl ?? (bool) config('licentra-laravel.verify_ssl', false);
+        $this->verifySsl = $verifySsl ?? (bool) config('licentra-laravel.verify_ssl', true);
+    }
+
+    /** @var (callable(): string)|null */
+    private static mixed $licenseKeyResolver = null;
+
+    /**
+     * Register a custom resolver callback for dynamic license key resolution (e.g. multi-tenant apps).
+     *
+     * @param  callable(): string  $resolver
+     */
+    public static function resolveLicenseKeyUsing(callable $resolver): void
+    {
+        self::$licenseKeyResolver = $resolver;
+    }
+
+    /**
+     * Get the effective license key for the current request context.
+     */
+    public function getLicenseKey(): string
+    {
+        if (self::$licenseKeyResolver !== null && empty($this->licenseKey)) {
+            return (string) (self::$licenseKeyResolver)();
+        }
+
+        return $this->licenseKey;
+    }
+
+    /**
+     * Create a scoped Licentra instance for a specific license key.
+     */
+    public function forLicenseKey(string $licenseKey): self
+    {
+        $clone = clone $this;
+        $clone->licenseKey = $licenseKey;
+
+        return $clone;
+    }
+
+    /**
+     * Create a scoped Licentra instance for a specific tenant object or array.
+     */
+    public function forTenant(mixed $tenant, string $licenseKeyAttribute = 'license_key'): self
+    {
+        /** @var string $key */
+        $key = is_array($tenant)
+            ? ($tenant[$licenseKeyAttribute] ?? '')
+            : (data_get($tenant, $licenseKeyAttribute) ?? '');
+
+        return $this->forLicenseKey((string) $key);
     }
 
     /**
@@ -91,7 +140,7 @@ class LicentraLaravel
                 'Content-Type' => 'application/json',
             ])
             ->post("{$this->baseUrl}/api/license/activate", array_filter([
-                'license_key' => $this->licenseKey,
+                'license_key' => $this->getLicenseKey(),
                 'domain' => $domain,
                 'machine_hash' => $machineHash,
                 'nonce' => $nonce,
@@ -116,12 +165,17 @@ class LicentraLaravel
             }
         }
 
+        $licenseKey = $this->getLicenseKey();
         // Cache active status securely
-        $this->putEncryptedCache("licentra_status_{$this->licenseKey}", true, config('licentra-laravel.cache_ttl', 3600));
-        $this->putEncryptedCache("licentra_data_{$this->licenseKey}", $data, config('licentra-laravel.cache_ttl', 3600));
+        $this->putEncryptedCache("licentra_status_{$licenseKey}", true, config('licentra-laravel.cache_ttl', 3600));
+        $this->putEncryptedCache("licentra_data_{$licenseKey}", $data, config('licentra-laravel.cache_ttl', 3600));
 
         if (isset($data['features']) && is_array($data['features'])) {
-            $this->putEncryptedCache("licentra_features_{$this->licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
+            $this->putEncryptedCache("licentra_features_{$licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
+        }
+
+        if (isset($data['limits']) && is_array($data['limits'])) {
+            $this->putEncryptedCache("licentra_limits_{$licenseKey}", $data['limits'], config('licentra-laravel.cache_ttl', 3600));
         }
 
         return $data;
@@ -137,7 +191,8 @@ class LicentraLaravel
             return false;
         }
 
-        $cacheKey = "licentra_ping_{$this->licenseKey}";
+        $licenseKey = $this->getLicenseKey();
+        $cacheKey = "licentra_ping_{$licenseKey}";
 
         if (Cache::has($cacheKey)) {
             return (bool) $this->getEncryptedCache($cacheKey, false);
@@ -153,7 +208,7 @@ class LicentraLaravel
                     'Content-Type' => 'application/json',
                 ])
                 ->post("{$this->baseUrl}/api/license/ping", [
-                    'license_key' => $this->licenseKey,
+                    'license_key' => $this->getLicenseKey(),
                     'nonce' => $sentNonce,
                     'timestamp' => now()->toIso8601String(),
                 ]);
@@ -183,10 +238,14 @@ class LicentraLaravel
                 }
 
                 $this->putEncryptedCache($cacheKey, true, config('licentra-laravel.cache_ttl', 3600));
-                $this->putEncryptedCache("licentra_last_successful_ping_{$this->licenseKey}", now()->timestamp, now()->addDays(30));
+                $this->putEncryptedCache("licentra_last_successful_ping_{$licenseKey}", now()->timestamp, now()->addDays(30));
 
                 if (isset($data['features']) && is_array($data['features'])) {
-                    $this->putEncryptedCache("licentra_features_{$this->licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
+                    $this->putEncryptedCache("licentra_features_{$licenseKey}", $data['features'], config('licentra-laravel.cache_ttl', 3600));
+                }
+
+                if (isset($data['limits']) && is_array($data['limits'])) {
+                    $this->putEncryptedCache("licentra_limits_{$licenseKey}", $data['limits'], config('licentra-laravel.cache_ttl', 3600));
                 }
 
                 return true;
@@ -204,7 +263,7 @@ class LicentraLaravel
 
             // Grace period fallback if server is unreachable
             /** @var int|null $lastPingTs */
-            $lastPingTs = $this->getEncryptedCache("licentra_last_successful_ping_{$this->licenseKey}");
+            $lastPingTs = $this->getEncryptedCache("licentra_last_successful_ping_{$licenseKey}");
             $graceDays = (int) config('licentra-laravel.grace_period_days', 3);
 
             if ($lastPingTs && (time() - $lastPingTs) <= ($graceDays * 86400)) {
@@ -225,9 +284,46 @@ class LicentraLaravel
     public function hasFeature(string $featureName, ?array $activeFeatures = null): bool
     {
         /** @var array<int, string> $features */
-        $features = $activeFeatures ?? $this->getEncryptedCache("licentra_features_{$this->licenseKey}", []);
+        $features = $activeFeatures ?? $this->getEncryptedCache("licentra_features_{$this->getLicenseKey()}", []);
 
         return in_array($featureName, $features, true);
+    }
+
+    /**
+     * Get value of a specific license limit or quota.
+     *
+     * @param  array<string, mixed>|null  $activeLimits
+     */
+    public function getLimit(string $limitKey, mixed $default = null, ?array $activeLimits = null): mixed
+    {
+        /** @var array<string, mixed> $limits */
+        $limits = $activeLimits ?? $this->getEncryptedCache(
+            "licentra_limits_{$this->getLicenseKey()}",
+            config('licentra-laravel.default_limits', [])
+        );
+
+        if (array_key_exists($limitKey, $limits)) {
+            return $limits[$limitKey];
+        }
+
+        return data_get($limits, $limitKey, $default);
+    }
+
+    /**
+     * Check if current usage has reached or exceeded a license limit.
+     * Note: A limit value of null or -1 represents unlimited usage.
+     *
+     * @param  array<string, mixed>|null  $activeLimits
+     */
+    public function hasReachedLimit(string $limitKey, int|float $currentUsage, ?array $activeLimits = null): bool
+    {
+        $limit = $this->getLimit($limitKey, null, $activeLimits);
+
+        if ($limit === null || $limit === -1) {
+            return false;
+        }
+
+        return $currentUsage >= (float) $limit;
     }
 
     /**
@@ -265,18 +361,23 @@ class LicentraLaravel
     }
 
     /**
-     * Verify that system clock has not been tampered with (wound backward).
+     * Verify that system clock has not been tampered with (wound backward beyond allowed drift).
      */
     private function isClockTampered(): bool
     {
-        $lastTimestampKey = "licentra_last_timestamp_{$this->licenseKey}";
+        $lastTimestampKey = "licentra_last_timestamp_{$this->getLicenseKey()}";
         $currentTs = time();
+        $allowedDrift = (int) config('licentra-laravel.clock_drift_tolerance', 300);
 
         if (Cache::has($lastTimestampKey)) {
             /** @var int|null $lastTs */
             $lastTs = $this->getEncryptedCache($lastTimestampKey);
-            if ($lastTs !== null && $currentTs < $lastTs) {
+            if ($lastTs !== null && ($lastTs - $currentTs) > $allowedDrift) {
                 return true;
+            }
+
+            if ($lastTs !== null && $lastTs > $currentTs) {
+                return false;
             }
         }
 
@@ -300,7 +401,7 @@ class LicentraLaravel
                 'Content-Type' => 'application/json',
             ])
             ->post("{$this->baseUrl}/api/license/hwid-reset", [
-                'license_key' => $this->licenseKey,
+                'license_key' => $this->getLicenseKey(),
                 'reason' => $reason,
             ]);
 
@@ -323,7 +424,7 @@ class LicentraLaravel
         $version = $currentVersion ?? '1.0.0';
 
         $url = "{$this->baseUrl}/api/releases/check?".http_build_query([
-            'license_key' => $this->licenseKey,
+            'license_key' => $this->getLicenseKey(),
             'product' => $product,
             'current_version' => $version,
         ]);
@@ -453,7 +554,7 @@ class LicentraLaravel
                 'Content-Type' => 'application/json',
             ])
             ->post("{$this->baseUrl}/api/license/seat/check-in", array_filter([
-                'license_key' => $this->licenseKey,
+                'license_key' => $this->getLicenseKey(),
                 'session_id' => $sessionId,
                 'user_identifier' => $userIdentifier,
             ]));
@@ -483,10 +584,11 @@ class LicentraLaravel
      */
     public function clearCache(?string $licenseKey = null): void
     {
-        $key = $licenseKey ?? $this->licenseKey;
+        $key = $licenseKey ?? $this->getLicenseKey();
         Cache::forget("licentra_status_{$key}");
         Cache::forget("licentra_data_{$key}");
         Cache::forget("licentra_features_{$key}");
+        Cache::forget("licentra_limits_{$key}");
         Cache::forget("licentra_ping_{$key}");
         Cache::forget("licentra_last_successful_ping_{$key}");
         Cache::forget("licentra_last_timestamp_{$key}");
@@ -503,7 +605,7 @@ class LicentraLaravel
                 'Content-Type' => 'application/json',
             ])
             ->post("{$this->baseUrl}/api/license/seat/check-out", [
-                'license_key' => $this->licenseKey,
+                'license_key' => $this->getLicenseKey(),
                 'session_id' => $sessionId,
             ]);
 
@@ -554,7 +656,7 @@ class LicentraLaravel
      */
     public function isRevoked(?string $targetLicenseKey = null, ?array $crlData = null): bool
     {
-        $keyToCheck = $targetLicenseKey ?? $this->licenseKey;
+        $keyToCheck = $targetLicenseKey ?? $this->getLicenseKey();
 
         try {
             /** @var array<string, mixed> $crl */

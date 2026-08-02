@@ -305,3 +305,92 @@ it('fetches CRL and checks if a license is revoked', function () {
     expect(LicentraLaravel::isRevoked($this->licenseKey, $fetched))->toBeTrue();
     expect(LicentraLaravel::isRevoked('VALID-KEY-999', $fetched))->toBeFalse();
 });
+
+it('allows minor backward clock drift within tolerance but detects major clock tampering', function () {
+    config()->set('licentra-laravel.clock_drift_tolerance', 300);
+    $cacheKey = "licentra_last_timestamp_{$this->licenseKey}";
+
+    // Set last timestamp to 100 seconds ahead of current time
+    Cache::put($cacheKey, encrypt(time() + 100), 3600);
+
+    // Ping should succeed because 100 seconds is within 300 seconds tolerance
+    Http::fake([
+        'https://licentra.test/api/license/ping' => Http::response(['data' => ['status' => 'valid']], 200),
+    ]);
+    expect(LicentraLaravel::ping())->toBeTrue();
+
+    // Now set last timestamp to 1000 seconds ahead (exceeds 300s tolerance)
+    Cache::forget("licentra_ping_{$this->licenseKey}");
+    Cache::put($cacheKey, encrypt(time() + 1000), 3600);
+    expect(LicentraLaravel::ping())->toBeFalse();
+});
+
+it('retrieves limits and checks quota thresholds accurately', function () {
+    $limits = [
+        'max_users' => 10,
+        'max_storage_gb' => 50,
+        'unlimited_feature' => -1,
+    ];
+
+    expect(LicentraLaravel::getLimit('max_users', null, $limits))->toBe(10);
+    expect(LicentraLaravel::getLimit('non_existent', 99, $limits))->toBe(99);
+
+    expect(LicentraLaravel::hasReachedLimit('max_users', 5, $limits))->toBeFalse();
+    expect(LicentraLaravel::hasReachedLimit('max_users', 10, $limits))->toBeTrue();
+    expect(LicentraLaravel::hasReachedLimit('max_users', 12, $limits))->toBeTrue();
+    expect(LicentraLaravel::hasReachedLimit('unlimited_feature', 9999, $limits))->toBeFalse();
+});
+
+it('runs licentra:sync artisan command successfully', function () {
+    Http::fake([
+        'https://licentra.test/api/license/ping' => Http::response(['data' => ['status' => 'valid']], 200),
+        'https://licentra.test/api/license/crl' => Http::response(['data' => ['revoked_licenses' => []]], 200),
+    ]);
+
+    $this->artisan('licentra:sync', ['--force' => true])
+        ->expectsOutputToContain('Syncing license status')
+        ->assertExitCode(0);
+});
+
+it('runs licentra:install-license artisan command successfully', function () {
+    $payload = [
+        'license_key' => $this->licenseKey,
+        'product_slug' => 'aquanusa',
+        'license_type' => 'Standard',
+        'valid_until' => now()->addYear()->toDateString(),
+    ];
+
+    $payloadString = CryptoVerifier::deterministicJsonEncode($payload);
+    openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    $jsonContent = json_encode([
+        'payload' => $payload,
+        'signature' => base64_encode($rawSig),
+    ]);
+
+    $tempFile = storage_path('app/test_license.lic');
+    File::ensureDirectoryExists(dirname($tempFile));
+    File::put($tempFile, $jsonContent);
+
+    $this->artisan('licentra:install-license', ['file' => $tempFile])
+        ->expectsOutputToContain('Offline license verified and installed successfully')
+        ->assertExitCode(0);
+
+    File::delete($tempFile);
+});
+
+it('supports multi-tenant scoped instances and dynamic key resolution', function () {
+    $tenantA = ['id' => 1, 'name' => 'Company A', 'license_key' => 'LCN-TENANT-A-1111'];
+    $tenantB = (object) ['id' => 2, 'name' => 'Company B', 'license_key' => 'LCN-TENANT-B-2222'];
+
+    $sdkA = LicentraLaravel::forTenant($tenantA);
+    $sdkB = LicentraLaravel::forTenant($tenantB);
+
+    expect($sdkA->getLicenseKey())->toBe('LCN-TENANT-A-1111');
+    expect($sdkB->getLicenseKey())->toBe('LCN-TENANT-B-2222');
+
+    // Test dynamic resolver
+    LicentraLaravel::resolveLicenseKeyUsing(fn () => 'LCN-DYNAMIC-RESOLVED');
+    $dynamicSdk = LicentraLaravel::forLicenseKey('');
+    expect($dynamicSdk->getLicenseKey())->toBe('LCN-DYNAMIC-RESOLVED');
+});

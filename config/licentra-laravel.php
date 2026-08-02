@@ -56,11 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Clock Drift Tolerance
+    |--------------------------------------------------------------------------
+    | Maximum allowed backward clock drift in seconds (to handle NTP adjustments).
+    */
+    'clock_drift_tolerance' => env('LICENTRA_CLOCK_DRIFT_TOLERANCE', 300),
+
+    /*
+    |--------------------------------------------------------------------------
     | SSL Verification
     |--------------------------------------------------------------------------
     | Toggle HTTP SSL verification. Set to true in production.
     */
-    'verify_ssl' => env('LICENTRA_VERIFY_SSL', false),
+    'verify_ssl' => env('LICENTRA_VERIFY_SSL', true),
 
     /*
     |--------------------------------------------------------------------------
