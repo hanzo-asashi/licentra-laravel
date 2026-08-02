@@ -9,8 +9,8 @@ return [
     'url' => env('LICENTRA_URL', 'https://licentra.test'),
     'server_url' => env('LICENTRA_URL', 'https://licentra.test'),
     'base_url' => env('LICENTRA_URL', 'https://licentra.test'),
-    'activate_endpoint' => rtrim(env('LICENTRA_URL', 'https://licentra.test'), '/') . '/api/license/activate',
-    'ping_endpoint' => rtrim(env('LICENTRA_URL', 'https://licentra.test'), '/') . '/api/license/ping',
+    'activate_endpoint' => rtrim(env('LICENTRA_URL', 'https://licentra.test'), '/').'/api/license/activate',
+    'ping_endpoint' => rtrim(env('LICENTRA_URL', 'https://licentra.test'), '/').'/api/license/ping',
 
     /*
     |--------------------------------------------------------------------------
