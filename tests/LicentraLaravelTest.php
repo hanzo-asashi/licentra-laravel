@@ -281,3 +281,27 @@ it('handles activation form post requests via controller', function () {
 
     $response->assertSessionHas('licentra_success');
 });
+
+it('fetches CRL and checks if a license is revoked', function () {
+    $crlData = [
+        'revoked_licenses' => [
+            ['license_key' => $this->licenseKey, 'status' => 'Revoked'],
+        ],
+        'generated_at' => now()->toIso8601String(),
+    ];
+
+    $payloadString = CryptoVerifier::deterministicJsonEncode($crlData);
+    openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    Http::fake([
+        'https://licentra.test/api/license/crl' => Http::response([
+            'data' => $crlData,
+            'signature' => base64_encode($rawSig),
+        ], 200),
+    ]);
+
+    $fetched = LicentraLaravel::fetchCrl();
+    expect($fetched['revoked_licenses'])->toHaveCount(1);
+    expect(LicentraLaravel::isRevoked($this->licenseKey, $fetched))->toBeTrue();
+    expect(LicentraLaravel::isRevoked('VALID-KEY-999', $fetched))->toBeFalse();
+});

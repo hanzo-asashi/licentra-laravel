@@ -509,4 +509,71 @@ class LicentraLaravel
 
         return $response->successful();
     }
+
+    /**
+     * Fetch the signed License Revocation List (CRL) from the Licentra server.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws Exception
+     */
+    public function fetchCrl(): array
+    {
+        $response = Http::withOptions(['verify' => $this->verifySsl])
+            ->withHeaders(['Accept' => 'application/json'])
+            ->get("{$this->baseUrl}/api/license/crl");
+
+        if ($response->failed()) {
+            throw new Exception((string) $response->json('message', 'Failed to fetch License Revocation List (CRL)'));
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = $response->json('data', []);
+        /** @var string|null $signature */
+        $signature = $response->json('signature');
+
+        // RSA Signature Verification if public key is available
+        $pubKey = $this->getPublicKey();
+        if (! empty($signature) && ! empty($pubKey)) {
+            $payloadJson = CryptoVerifier::deterministicJsonEncode($data);
+            if (! CryptoVerifier::verifySignature($payloadJson, $signature, $pubKey)) {
+                throw new Exception('CRL response failed RSA signature verification.');
+            }
+        }
+
+        // Cache CRL data locally for offline fallback
+        $this->putEncryptedCache('licentra_crl_data', $data, config('licentra-laravel.cache_ttl', 3600));
+
+        return $data;
+    }
+
+    /**
+     * Check if a license key is revoked or suspended according to CRL.
+     *
+     * @param  array<string, mixed>|null  $crlData
+     */
+    public function isRevoked(?string $targetLicenseKey = null, ?array $crlData = null): bool
+    {
+        $keyToCheck = $targetLicenseKey ?? $this->licenseKey;
+
+        try {
+            /** @var array<string, mixed> $crl */
+            $crl = $crlData ?? $this->fetchCrl();
+        } catch (Exception $e) {
+            // Fallback to cached CRL if server is unreachable
+            /** @var array<string, mixed> $crl */
+            $crl = $this->getEncryptedCache('licentra_crl_data', []);
+        }
+
+        /** @var array<int, array<string, string>> $revokedList */
+        $revokedList = $crl['revoked_licenses'] ?? [];
+
+        foreach ($revokedList as $item) {
+            if (($item['license_key'] ?? '') === $keyToCheck) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
