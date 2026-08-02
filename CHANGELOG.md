@@ -2,6 +2,10 @@
 
 All notable changes to `licentra-laravel` will be documented in this file.
 
+## v1.2.1 - 2026-08-02
+
+**Full Changelog**: https://github.com/hanzo-asashi/licentra-laravel/compare/v1.2.0...v1.2.1
+
 ## v1.2.0 - Licentra Laravel Client SDK - 2026-08-01
 
 ### What's Changed
