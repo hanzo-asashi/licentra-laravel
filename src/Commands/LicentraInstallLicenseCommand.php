@@ -18,8 +18,8 @@ class LicentraInstallLicenseCommand extends Command
     {
         /** @var string $fileInput */
         $fileInput = (string) $this->argument('file');
-        /** @var string|null $customPath */
-        $customPath = $this->option('path') ? (string) $this->option('path') : null;
+        $pathOption = $this->option('path');
+        $customPath = is_string($pathOption) && $pathOption !== '' ? $pathOption : null;
 
         $this->info('Verifying offline license signature...');
 
