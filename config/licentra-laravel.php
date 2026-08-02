@@ -7,6 +7,10 @@ return [
     |--------------------------------------------------------------------------
     */
     'url' => env('LICENTRA_URL', 'https://licentra.test'),
+    'server_url' => env('LICENTRA_URL', 'https://licentra.test'),
+    'base_url' => env('LICENTRA_URL', 'https://licentra.test'),
+    'activate_endpoint' => rtrim(env('LICENTRA_URL', 'https://licentra.test'), '/').'/api/license/activate',
+    'ping_endpoint' => rtrim(env('LICENTRA_URL', 'https://licentra.test'), '/').'/api/license/ping',
 
     /*
     |--------------------------------------------------------------------------
@@ -28,6 +32,11 @@ return [
     |--------------------------------------------------------------------------
     */
     'public_key' => env('LICENTRA_PUBLIC_KEY'),
+    'public_key_path' => env('LICENTRA_PUBLIC_KEY_PATH', storage_path('keys/licentra_public.pem')),
+    'license_file_path' => env('LICENTRA_LICENSE_FILE_PATH', storage_path('app/license/license.lic')),
+    'cache_key' => env('LICENTRA_CACHE_KEY', 'licentra_active_license'),
+    'default_features' => [],
+    'default_limits' => [],
 
     /*
     |--------------------------------------------------------------------------
