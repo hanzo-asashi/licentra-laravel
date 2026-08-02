@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Licentra\LicentraLaravel\Facades\LicentraLaravel;
+use Licentra\LicentraLaravel\Support\LicenseKeyValidator;
 
 class ActivationController extends Controller
 {
@@ -20,6 +21,12 @@ class ActivationController extends Controller
             return back()->withErrors(['license_key' => 'Kode lisensi tidak boleh kosong.']);
         }
 
+        $licenseKey = LicenseKeyValidator::normalize($licenseKey);
+
+        if (! LicenseKeyValidator::isValid($licenseKey)) {
+            return back()->withErrors(['license_key' => 'Format kunci lisensi tidak valid. Format yang benar: LCN-XXXX-XXXX-XXXX-XXXX']);
+        }
+
         try {
             LicentraLaravel::setLicenseKey($licenseKey)->activate();
 
@@ -29,3 +36,4 @@ class ActivationController extends Controller
         }
     }
 }
+

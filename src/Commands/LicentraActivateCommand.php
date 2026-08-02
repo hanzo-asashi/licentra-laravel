@@ -7,6 +7,7 @@ namespace Licentra\LicentraLaravel\Commands;
 use Exception;
 use Illuminate\Console\Command;
 use Licentra\LicentraLaravel\Facades\LicentraLaravel;
+use Licentra\LicentraLaravel\Support\LicenseKeyValidator;
 
 class LicentraActivateCommand extends Command
 {
@@ -31,6 +32,10 @@ class LicentraActivateCommand extends Command
         }
 
         LicentraLaravel::setLicenseKey($licenseKey);
+
+        if (! LicenseKeyValidator::isValid($licenseKey)) {
+            $this->warn('Format kunci lisensi tidak sesuai standar (LCN-XXXX-XXXX-XXXX-XXXX). Melanjutkan...');
+        }
 
         /** @var string|null $domain */
         $domain = $this->option('domain');
