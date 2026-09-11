@@ -88,6 +88,34 @@ it('verifies offline license file (.lic format)', function () {
     expect($verified['features'])->toContain('feature_a');
 });
 
+it('activates offline license, stores encrypted cache and exposes helper methods', function () {
+    $payload = [
+        'license_key' => $this->licenseKey,
+        'customer_name' => 'Pemerintah Kabupaten Soppeng',
+        'features' => ['tte_bsre', 'wa_notif', 'audit_export'],
+        'limits' => ['max_documents' => 1000],
+    ];
+
+    $payloadString = CryptoVerifier::deterministicJsonEncode($payload);
+    openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    $licContent = json_encode([
+        'payload' => $payload,
+        'signature' => base64_encode($rawSig),
+    ]);
+
+    $result = LicentraLaravel::activateOfflineLicense($licContent);
+    expect($result['license_key'])->toBe($this->licenseKey);
+    expect(LicentraLaravel::isLicensed())->toBeTrue();
+    expect(LicentraLaravel::isOffline())->toBeTrue();
+    expect(LicentraLaravel::hasFeature('tte_bsre'))->toBeTrue();
+    expect(LicentraLaravel::hasFeature('wa_notif'))->toBeTrue();
+    expect(LicentraLaravel::hasFeature('non_existent'))->toBeFalse();
+    expect(LicentraLaravel::getFeatures())->toBe(['tte_bsre', 'wa_notif', 'audit_export']);
+    expect(LicentraLaravel::getLimit('max_documents'))->toBe(1000);
+    expect(LicentraLaravel::getLicenseData()['customer_name'])->toBe('Pemerintah Kabupaten Soppeng');
+});
+
 it('verifies RS256 JWT tokens', function () {
     $header = ['alg' => 'RS256', 'typ' => 'JWT'];
     $payload = [

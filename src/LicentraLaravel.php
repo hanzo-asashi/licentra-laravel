@@ -514,12 +514,112 @@ class LicentraLaravel
      */
     public function loadOfflineLicense(?string $path = null): array
     {
-        $filePath = $path ?? storage_path('app/licentra/license.lic');
+        $filePath = $path
+            ?? (File::exists((string) config('licentra-laravel.license_file_path'))
+                ? (string) config('licentra-laravel.license_file_path')
+                : storage_path('app/licentra/license.lic'));
+
         if (! File::exists($filePath)) {
             throw new Exception("Offline license file not found at [{$filePath}].");
         }
 
-        return $this->verifyOfflineLicense($filePath);
+        $payload = $this->verifyOfflineLicense($filePath);
+        $licenseKey = (string) ($payload['license_key'] ?? $this->getLicenseKey());
+
+        if (! empty($licenseKey)) {
+            $ttl = config('licentra-laravel.cache_ttl', 3600);
+            $this->putEncryptedCache("licentra_status_{$licenseKey}", true, $ttl);
+            $this->putEncryptedCache("licentra_data_{$licenseKey}", $payload, $ttl);
+            $this->putEncryptedCache("licentra_is_offline_{$licenseKey}", true, $ttl);
+
+            if (isset($payload['features']) && is_array($payload['features'])) {
+                $this->putEncryptedCache("licentra_features_{$licenseKey}", $payload['features'], $ttl);
+            }
+
+            if (isset($payload['limits']) && is_array($payload['limits'])) {
+                $this->putEncryptedCache("licentra_limits_{$licenseKey}", $payload['limits'], $ttl);
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Verify and activate offline license (.lic file or JSON string) into local encrypted cache.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws Exception
+     */
+    public function activateOfflineLicense(string $fileContentOrPath, ?string $targetPath = null): array
+    {
+        $payload = $this->verifyOfflineLicense($fileContentOrPath);
+
+        $licenseKey = (string) ($payload['license_key'] ?? '');
+        if (empty($licenseKey)) {
+            throw new Exception('Offline license payload does not contain a valid license_key.');
+        }
+
+        $savePath = $targetPath ?? (string) config('licentra-laravel.license_file_path', storage_path('app/licentra/license.lic'));
+        $this->saveOfflineLicense($fileContentOrPath, $savePath);
+
+        $this->licenseKey = $licenseKey;
+
+        $ttl = config('licentra-laravel.cache_ttl', 3600);
+        $this->putEncryptedCache("licentra_status_{$licenseKey}", true, $ttl);
+        $this->putEncryptedCache("licentra_data_{$licenseKey}", $payload, $ttl);
+        $this->putEncryptedCache("licentra_is_offline_{$licenseKey}", true, $ttl);
+
+        if (isset($payload['features']) && is_array($payload['features'])) {
+            $this->putEncryptedCache("licentra_features_{$licenseKey}", $payload['features'], $ttl);
+        }
+
+        if (isset($payload['limits']) && is_array($payload['limits'])) {
+            $this->putEncryptedCache("licentra_limits_{$licenseKey}", $payload['limits'], $ttl);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Get all active features for the current license.
+     *
+     * @return array<int, string>
+     */
+    public function getFeatures(): array
+    {
+        /** @var array<int, string> */
+        return $this->getEncryptedCache(
+            "licentra_features_{$this->getLicenseKey()}",
+            config('licentra-laravel.default_features', [])
+        );
+    }
+
+    /**
+     * Get the full verified license data payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function getLicenseData(): array
+    {
+        /** @var array<string, mixed> */
+        return $this->getEncryptedCache("licentra_data_{$this->getLicenseKey()}", []);
+    }
+
+    /**
+     * Check if the license is currently active and valid.
+     */
+    public function isLicensed(): bool
+    {
+        return (bool) $this->getEncryptedCache("licentra_status_{$this->getLicenseKey()}", false);
+    }
+
+    /**
+     * Check if the license was activated via offline mode (.lic file).
+     */
+    public function isOffline(): bool
+    {
+        return (bool) $this->getEncryptedCache("licentra_is_offline_{$this->getLicenseKey()}", false);
     }
 
     /**
