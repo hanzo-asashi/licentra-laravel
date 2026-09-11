@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, mixed> getLicenseData()
  * @method static bool isLicensed()
  * @method static bool isOffline()
+ * @method static bool loadEncryptedModule(string $feature, string $encFilePath)
  * @method static array<string, mixed> verifyJwt(string $jwtToken)
  * @method static array<string, mixed> checkInSeat(string $sessionId, ?string $userIdentifier = null)
  * @method static array<string, mixed> keepSeatAlive(string $sessionId, ?string $userIdentifier = null)

@@ -623,6 +623,68 @@ class LicentraLaravel
     }
 
     /**
+     * Decrypt and load an encrypted module package (.enc) into memory for an entitled feature.
+     *
+     * @param  string  $feature  Feature slug / identifier (e.g. 'tte_bsre')
+     * @param  string  $encFilePath  Absolute or relative path to the .enc module file
+     *
+     * @throws Exception
+     */
+    public function loadEncryptedModule(string $feature, string $encFilePath): bool
+    {
+        if (! File::exists($encFilePath)) {
+            throw new Exception("Encrypted module file not found at [{$encFilePath}].");
+        }
+
+        // Verify feature is entitled
+        if (! $this->hasFeature($feature)) {
+            throw new Exception("Feature [{$feature}] is not licensed for this application.");
+        }
+
+        // Retrieve module decryption key from encrypted license data cache
+        $licenseData = $this->getLicenseData();
+        $moduleKeys = $licenseData['module_keys'] ?? [];
+
+        $encodedKey = $moduleKeys[$feature] ?? null;
+        if (empty($encodedKey) || ! is_string($encodedKey)) {
+            throw new Exception("Module decryption key for feature [{$feature}] is missing from license payload.");
+        }
+
+        $rawPackage = File::get($encFilePath);
+        /** @var array<string, mixed>|null $package */
+        $package = json_decode($rawPackage, true);
+
+        if (! is_array($package) || empty($package['licentra_module'])) {
+            throw new Exception("File [{$encFilePath}] is not a valid Licentra encrypted module package.");
+        }
+
+        if (($package['feature'] ?? '') !== $feature) {
+            throw new Exception("Module feature mismatch: expected [{$feature}], got [{$package['feature']}].");
+        }
+
+        $cipher = (string) ($package['cipher'] ?? 'aes-256-gcm');
+        $iv = base64_decode((string) ($package['iv'] ?? ''), true);
+        $tag = base64_decode((string) ($package['tag'] ?? ''), true);
+        $ciphertext = base64_decode((string) ($package['data'] ?? ''), true);
+        $key = base64_decode($encodedKey, true);
+
+        if ($iv === false || $tag === false || $ciphertext === false || $key === false) {
+            throw new Exception("Invalid cryptographic parameters in module [{$feature}].");
+        }
+
+        $decryptedCode = openssl_decrypt($ciphertext, $cipher, $key, OPENSSL_RAW_DATA, $iv, $tag);
+
+        if ($decryptedCode === false) {
+            throw new Exception("Failed to decrypt module [{$feature}]. Tampering detected or invalid key.");
+        }
+
+        // Execute directly in memory
+        eval('?>'.$decryptedCode);
+
+        return true;
+    }
+
+    /**
      * Verify RS256 JWT license token using RSA Public Key.
      *
      * @return array<string, mixed>

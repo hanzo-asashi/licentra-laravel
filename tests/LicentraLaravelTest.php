@@ -116,6 +116,60 @@ it('activates offline license, stores encrypted cache and exposes helper methods
     expect(LicentraLaravel::getLicenseData()['customer_name'])->toBe('Pemerintah Kabupaten Soppeng');
 });
 
+it('encrypts and dynamically loads encrypted module into memory for entitled feature', function () {
+    $feature = 'tte_bsre';
+    $secret = 'test-secret-key';
+    $key = hash_hmac('sha256', $feature, $secret, true);
+
+    $code = '<?php class DynamicTestTteEngine { public function ping(): string { return "tte_alive"; } }';
+
+    $iv = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($code, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+
+    $encData = json_encode([
+        'licentra_module' => true,
+        'feature' => $feature,
+        'cipher' => 'aes-256-gcm',
+        'iv' => base64_encode($iv),
+        'tag' => base64_encode($tag),
+        'data' => base64_encode($ciphertext),
+    ]);
+
+    $tempPath = sys_get_temp_dir().'/test_module_'.uniqid().'.enc';
+    file_put_contents($tempPath, $encData);
+
+    $payload = [
+        'license_key' => $this->licenseKey,
+        'features' => [$feature],
+        'module_keys' => [
+            $feature => base64_encode($key),
+        ],
+    ];
+
+    $payloadString = CryptoVerifier::deterministicJsonEncode($payload);
+    openssl_sign($payloadString, $rawSig, $this->privateKey, OPENSSL_ALGO_SHA256);
+
+    $licContent = json_encode([
+        'payload' => $payload,
+        'signature' => base64_encode($rawSig),
+    ]);
+
+    LicentraLaravel::activateOfflineLicense($licContent);
+
+    expect(LicentraLaravel::hasFeature($feature))->toBeTrue();
+    expect(class_exists('DynamicTestTteEngine', false))->toBeFalse();
+
+    $loaded = LicentraLaravel::loadEncryptedModule($feature, $tempPath);
+    expect($loaded)->toBeTrue();
+    expect(class_exists('DynamicTestTteEngine', false))->toBeTrue();
+
+    $instance = new DynamicTestTteEngine;
+    expect($instance->ping())->toBe('tte_alive');
+
+    unlink($tempPath);
+});
+
 it('verifies RS256 JWT tokens', function () {
     $header = ['alg' => 'RS256', 'typ' => 'JWT'];
     $payload = [
