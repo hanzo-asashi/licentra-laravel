@@ -24,7 +24,7 @@ return [
     | Product Slug
     |--------------------------------------------------------------------------
     */
-    'product_slug' => env('LICENTRA_PRODUCT_SLUG', 'aquanusa'),
+    'product_slug' => env('LICENTRA_PRODUCT_SLUG'),
 
     /*
     |--------------------------------------------------------------------------

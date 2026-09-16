@@ -213,7 +213,8 @@ class LicentraLaravel
                     'timestamp' => now()->toIso8601String(),
                 ]);
 
-            if ($response->successful() && $response->json('data.status') === 'valid') {
+            $status = mb_strtolower((string) $response->json('data.status'));
+            if ($response->successful() && in_array($status, ['valid', 'active', 'graceperiod', 'grace_period'], true)) {
                 /** @var array<string, mixed> $data */
                 $data = $response->json('data', []);
                 /** @var string|null $signature */
@@ -238,6 +239,9 @@ class LicentraLaravel
                 }
 
                 $this->putEncryptedCache($cacheKey, true, config('licentra-laravel.cache_ttl', 3600));
+                $this->putEncryptedCache("licentra_status_{$licenseKey}", true, config('licentra-laravel.cache_ttl', 3600));
+                $this->putEncryptedCache("licentra_data_{$licenseKey}", $data, config('licentra-laravel.cache_ttl', 3600));
+                $this->putEncryptedCache("licentra_is_offline_{$licenseKey}", false, config('licentra-laravel.cache_ttl', 3600));
                 $this->putEncryptedCache("licentra_last_successful_ping_{$licenseKey}", now()->timestamp, now()->addDays(30));
 
                 if (isset($data['features']) && is_array($data['features'])) {

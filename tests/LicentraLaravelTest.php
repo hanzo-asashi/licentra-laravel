@@ -215,9 +215,10 @@ it('activates license online with RSA signature verification', function () {
     expect(LicentraLaravel::hasFeature('analytics'))->toBeTrue();
 });
 
-it('performs ping with RSA verification', function () {
+it('performs ping with RSA verification and caches active status and data', function () {
     $data = [
-        'status' => 'valid',
+        'status' => 'Active',
+        'customer_name' => 'Pemerintah Kabupaten Soppeng',
         'license_key' => $this->licenseKey,
         'features' => ['premium'],
     ];
@@ -234,6 +235,9 @@ it('performs ping with RSA verification', function () {
 
     $pingResult = LicentraLaravel::ping();
     expect($pingResult)->toBeTrue();
+    expect(LicentraLaravel::isLicensed())->toBeTrue();
+    expect(LicentraLaravel::getLicenseData()['customer_name'])->toBe('Pemerintah Kabupaten Soppeng');
+    expect(LicentraLaravel::hasFeature('premium'))->toBeTrue();
 });
 
 it('sends HWID reset request', function () {

@@ -2,6 +2,17 @@
 
 All notable changes to `licentra-laravel` will be documented in this file.
 
+## v1.5.0 - 2026-09-16
+
+### What's Changed
+
+- **Flexible License Ping Status & Auto-Caching**: Added support for case-insensitive `Active`, `valid`, `graceperiod`, and `grace_period` statuses in `LicentraLaravel::ping()` and automatically caches license status and data upon successful synchronization.
+- **Offline License Activation & Entitlement Helpers**: Added `activateOfflineLicense()`, `isLicensed()`, `isOffline()`, `getLicenseData()`, and `getFeatures()` for unified license inspection.
+- **In-Memory Encrypted Module Loader**: Added `loadEncryptedModule()` for secure AES-256-GCM runtime code execution.
+- **Configuration**: Removed hardcoded default product slug from config.
+
+**Full Changelog**: https://github.com/hanzo-asashi/licentra-laravel/compare/v1.4.1...v1.5.0
+
 ## v1.4.1 - 2026-08-02
 
 ### What's Changed
